@@ -209,14 +209,14 @@ class TrustedTimestamps
 
         /*
          * just 2 "normal" cases:
-         * 	1) Everything okay -> retcode 0 + retarray[0] == "Verification: OK"
+         * 	1) Everything okay -> retcode 0 + retarray[somewhere] == "Verification: OK"
          *  2) Hash is wrong -> retcode 1 + strpos(retarray[somewhere], "message imprint mismatch") !== false
          *
          * every other case (Certificate not found / invalid / openssl is not installed / ts command not known)
          * are being handled the same way -> retcode 1 + any retarray NOT containing "message imprint mismatch"
          */
 
-        if ($retcode === 0 && strtolower(trim(array_pop($retarray))) == "verification: ok") {
+        if ($retcode === 0 && array_search("verification: ok", array_map('strtolower', $retarray)) !== false) {
             if (self::getTimestampFromAnswer($base64_response_string) != $response_time) {
                 throw new Exception("The responsetime of the request was changed");
             }
@@ -224,10 +224,8 @@ class TrustedTimestamps
             return true;
         }
 
-        foreach ($retarray as $retline) {
-            if (stripos($retline, "message imprint mismatch") !== false) {
-                return false;
-            }
+        if (array_search("message imprint mismatch", array_map('strtolower', $retarray)) !== false) {
+            return false;
         }
 
         throw new Exception("Systemcommand failed: ".implode(", ", $retarray));

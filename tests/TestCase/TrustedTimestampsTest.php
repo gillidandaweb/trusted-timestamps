@@ -46,6 +46,19 @@ class TrustedTimestampsTest extends TestCase
         $this->assertTrue(!empty($signature['response_string']));
     }
 
+    public function testValidateWrongHashStringFails()
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessageMatches('/message imprint mismatch/');
+
+        $sha1 = sha1('foo');
+        $requestFile = TrustedTimestamps::createRequestfile($sha1);
+        $this->toUnlink[] = $requestFile;
+        $signature = TrustedTimestamps::signRequestfile($requestFile, self::TSA_URL);
+
+        TrustedTimestamps::validate(sha1('foo1'), $signature['response_string'], $signature['response_time'], $this->tsaCertificate);
+    }
+
     public function testValidateWrongResponseTimeFails()
     {
         $this->expectException(\Exception::class);
@@ -56,20 +69,24 @@ class TrustedTimestampsTest extends TestCase
         $this->toUnlink[] = $requestFile;
         $signature = TrustedTimestamps::signRequestfile($requestFile, self::TSA_URL);
 
-        TrustedTimestamps::validate($sha1, $signature['response_string'], time() + 1, $this->tsaCertificate);
+        TrustedTimestamps::validate($sha1, $signature['response_string'], 1, $this->tsaCertificate);
     }
 
     public function testValidateWrongResponseStringFails()
     {
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessageMatches('/.*Verification: FAILED$/');
+        $this->expectExceptionMessageMatches('/Verification: FAILED/');
 
         $sha1 = sha1('foo');
         $requestFile = TrustedTimestamps::createRequestfile($sha1);
         $this->toUnlink[] = $requestFile;
         $signature = TrustedTimestamps::signRequestfile($requestFile, self::TSA_URL);
 
-        TrustedTimestamps::validate($sha1, 'nonsense-string', $signature['response_time'], $this->tsaCertificate);
+        $wrongRequestFile = TrustedTimestamps::createRequestfile(sha1('foo1'));
+        $this->toUnlink[] = $wrongRequestFile;
+        $wrongSignature = TrustedTimestamps::signRequestfile($wrongRequestFile, self::TSA_URL);
+
+        TrustedTimestamps::validate($sha1, $wrongSignature['response_string'], $signature['response_time'], $this->tsaCertificate);
     }
 
     public function tearDown(): void
